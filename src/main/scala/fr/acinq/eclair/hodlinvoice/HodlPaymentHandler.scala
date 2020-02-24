@@ -21,7 +21,6 @@ import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.eclair.NodeParams
 import fr.acinq.eclair.channel.CMD_FAIL_HTLC
 import fr.acinq.eclair.db.IncomingPaymentsDb
-import fr.acinq.eclair.hodlinvoice.HodlPaymentHandler.HodlingPayment
 import fr.acinq.eclair.payment.receive.MultiPartPaymentFSM.MultiPartPaymentSucceeded
 import fr.acinq.eclair.payment.receive.{MultiPartHandler, MultiPartPaymentFSM}
 import fr.acinq.eclair.payment.relay.CommandBuffer
@@ -30,6 +29,8 @@ import fr.acinq.eclair.wire.TemporaryNodeFailure
 import scala.collection.mutable
 
 class HodlPaymentHandler(nodeParams: NodeParams, commandBuffer: ActorRef, db: IncomingPaymentsDb) extends MultiPartHandler(nodeParams, db, commandBuffer) {
+
+  case class HodlingPayment(preimage: ByteVector32, p: MultiPartPaymentSucceeded)
 
   val hodlingPayments: mutable.Set[HodlingPayment] = mutable.Set.empty
 
@@ -46,7 +47,7 @@ class HodlPaymentHandler(nodeParams: NodeParams, commandBuffer: ActorRef, db: In
       case Some(p@HodlingPayment(preimage, e)) =>
         system.log.info(s"releasing hodled payment_hash=$paymentHash")
         super.doFulfill(system, preimage, e)(system.log)
-        hodlingPayments -= HodlingPayment(preimage, e)
+        hodlingPayments -= p
         s"releasing hodled payment_hash=$paymentHash"
     }
   }
@@ -61,17 +62,8 @@ class HodlPaymentHandler(nodeParams: NodeParams, commandBuffer: ActorRef, db: In
         e.parts.collect {
           case p: MultiPartPaymentFSM.HtlcPart => commandBuffer ! CommandBuffer.CommandSend(p.htlc.channelId, CMD_FAIL_HTLC(p.htlc.id, Right(TemporaryNodeFailure), commit = true))
         }
+        hodlingPayments -= p
         s"aborted hodled payment_hash=$paymentHash"
     }
   }
-
-}
-
-object HodlPaymentHandler {
-
-  // @formatter off
-  case class ReleasePayment(paymentHash: ByteVector32)
-  case class HodlingPayment(preimage: ByteVector32, p: MultiPartPaymentSucceeded)
-  // @formatter on
-
 }
