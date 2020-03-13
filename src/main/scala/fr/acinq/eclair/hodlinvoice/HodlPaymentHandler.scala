@@ -23,13 +23,13 @@ import fr.acinq.bitcoin.{ByteVector32, Crypto}
 import fr.acinq.eclair.channel.{CMD_FAIL_HTLC, CMD_FULFILL_HTLC, Channel, ChannelCommandResponse}
 import fr.acinq.eclair.db.{IncomingPayment, IncomingPaymentStatus, IncomingPaymentsDb}
 import fr.acinq.eclair.payment.Monitoring.{Metrics, Tags}
-import fr.acinq.eclair.payment.{IncomingPacket, PaymentReceived, PaymentRequest}
-import fr.acinq.eclair.payment.receive.MultiPartHandler.{DoFulfill, GetPendingPayments, PendingPayments, ReceivePayment}
+import fr.acinq.eclair.payment.receive.MultiPartHandler.{GetPendingPayments, PendingPayments, ReceivePayment}
 import fr.acinq.eclair.payment.receive.MultiPartPaymentFSM.MultiPartPaymentSucceeded
 import fr.acinq.eclair.payment.receive.{MultiPartPaymentFSM, ReceiveHandler}
 import fr.acinq.eclair.payment.relay.CommandBuffer
-import fr.acinq.eclair.{CltvExpiry, Features, Logs, MilliSatoshi, NodeParams, randomBytes32}
+import fr.acinq.eclair.payment.{IncomingPacket, PaymentReceived, PaymentRequest}
 import fr.acinq.eclair.wire.IncorrectOrUnknownPaymentDetails
+import fr.acinq.eclair.{CltvExpiry, Features, Logs, MilliSatoshi, NodeParams, randomBytes32}
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -182,7 +182,15 @@ class HodlPaymentHandler(nodeParams: NodeParams, system: ActorSystem, db: Incomi
 
 object HodlPaymentHandler {
 
-  case class HodlingPayment(preimage: ByteVector32, p: MultiPartPaymentSucceeded)
+  private def validatePayment(payment: IncomingPacket.FinalPacket, record: IncomingPayment, currentBlockHeight: Long)(implicit log: LoggingAdapter): Option[CMD_FAIL_HTLC] = {
+    // We send the same error regardless of the failure to avoid probing attacks.
+    val cmdFail = CMD_FAIL_HTLC(payment.add.id, Right(IncorrectOrUnknownPaymentDetails(payment.payload.totalAmount, currentBlockHeight)), commit = true)
+    val paymentAmountOk = record.paymentRequest.amount.forall(a => validatePaymentAmount(payment, a))
+    val paymentCltvOk = validatePaymentCltv(payment, record.paymentRequest.minFinalCltvExpiryDelta.getOrElse(Channel.MIN_CLTV_EXPIRY_DELTA).toCltvExpiry(currentBlockHeight))
+    val paymentStatusOk = validatePaymentStatus(payment, record)
+    val paymentFeaturesOk = validateInvoiceFeatures(payment, record.paymentRequest)
+    if (paymentAmountOk && paymentCltvOk && paymentStatusOk && paymentFeaturesOk) None else Some(cmdFail)
+  }
 
   private def validatePaymentStatus(payment: IncomingPacket.FinalPacket, record: IncomingPayment)(implicit log: LoggingAdapter): Boolean = {
     if (record.status.isInstanceOf[IncomingPaymentStatus.Received]) {
@@ -235,13 +243,5 @@ object HodlPaymentHandler {
     }
   }
 
-  private def validatePayment(payment: IncomingPacket.FinalPacket, record: IncomingPayment, currentBlockHeight: Long)(implicit log: LoggingAdapter): Option[CMD_FAIL_HTLC] = {
-    // We send the same error regardless of the failure to avoid probing attacks.
-    val cmdFail = CMD_FAIL_HTLC(payment.add.id, Right(IncorrectOrUnknownPaymentDetails(payment.payload.totalAmount, currentBlockHeight)), commit = true)
-    val paymentAmountOk = record.paymentRequest.amount.forall(a => validatePaymentAmount(payment, a))
-    val paymentCltvOk = validatePaymentCltv(payment, record.paymentRequest.minFinalCltvExpiryDelta.getOrElse(Channel.MIN_CLTV_EXPIRY_DELTA).toCltvExpiry(currentBlockHeight))
-    val paymentStatusOk = validatePaymentStatus(payment, record)
-    val paymentFeaturesOk = validateInvoiceFeatures(payment, record.paymentRequest)
-    if (paymentAmountOk && paymentCltvOk && paymentStatusOk && paymentFeaturesOk) None else Some(cmdFail)
-  }
+  case class HodlingPayment(preimage: ByteVector32, p: MultiPartPaymentSucceeded)
 }

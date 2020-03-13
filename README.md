@@ -17,7 +17,6 @@ The plugin exposes a new http interface with 2 additional endpoints that you can
 | /hodlaccept | POST   | payment_hash          | Accepts the incoming payment by releasing its preimage      |
 | /hodlreject | POST   | payment_hash          | Rejects the incoming payment by failing the underlying HTLC |
 
-
 Note that it's currently impossible for eclair plugins to add new HTTP-RPC endpoints, so this plugin listens
 on a different socket than the standard eclair API, the port will be `eclair.api.port + 1`. The same authentication
 credentials of the regular eclair API is necessary to use the hodl plugin APIs.
