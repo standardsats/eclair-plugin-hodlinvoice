@@ -54,7 +54,7 @@ class PluginEntryPoint extends Plugin with Logging {
       case _ => akka.pattern.after(1 second, using = kit.system.scheduler)(Future.successful(None))(kit.system.dispatcher) // force a 1 sec pause to deter brute force
     }
 
-    val hodlHandler = new HodlPaymentHandler(kit.nodeParams, kit.system, kit.nodeParams.db.payments, kit.commandBuffer)
+    val hodlHandler = new HodlPaymentHandler(kit.nodeParams, kit.paymentHandler, kit.system.log)
     kit.paymentHandler ! hodlHandler
 
     // start mini hodl api
