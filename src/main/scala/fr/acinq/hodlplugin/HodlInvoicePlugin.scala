@@ -24,7 +24,7 @@ import fr.acinq.hodlplugin.api.Service
 import fr.acinq.hodlplugin.handler.HodlPaymentHandler
 import grizzled.slf4j.Logging
 
-class PluginEntryPoint extends Plugin with Logging {
+class HodlInvoicePlugin extends Plugin with Logging {
 
   logger.info("loading HodlPlugin")
 
