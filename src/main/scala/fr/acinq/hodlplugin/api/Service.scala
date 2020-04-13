@@ -28,9 +28,14 @@ import scala.concurrent.duration._
 
 class Service(conf: Config, system: ActorSystem, hodlPaymentHandler: HodlPaymentHandler) extends ExtraDirectives {
 
-  val apiHost = conf.getString("api.binding-ip")
-  val apiPort = conf.getInt("api.port") + 1 //FIXME: +1 because we must bind to a different port than the eclair API
   val password = conf.getString("api.password")
+  val apiHost = conf.getString("api.binding-ip")
+  val apiPort = {
+    if(conf.hasPath("hodlplugin.api.port"))
+      conf.getInt("hodlplugin.api.port")
+    else
+      conf.getInt("api.port") + 1 // if no port was specified we default to eclair api port + 1
+  }
 
   def userPassAuthenticator(credentials: Credentials): Future[Option[String]] = credentials match {
     case p@Credentials.Provided(id) if p.verify(password) => Future.successful(Some(id))
