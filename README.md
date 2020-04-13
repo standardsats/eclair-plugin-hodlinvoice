@@ -18,7 +18,7 @@ The plugin exposes a new http interface with 2 additional endpoints that you can
 | /hodlreject | POST   | paymentHash          | Rejects the incoming payment by failing the underlying HTLC |
 
 Note that it's currently impossible for eclair plugins to add new HTTP-RPC endpoints, so this plugin listens
-on a different socket than the standard eclair API. You can configure the port by setting the
+on a different port than the standard eclair API. You can configure the port by setting the
 configuration key `hodlplugin.api.port` but if none is set the plugin will default to the eclair API port + 1.
 The same authentication credentials of the regular eclair API is necessary to use the hodl plugin APIs.
 The plugin doesn't persist the data between restarts, so if you have an invoice on hold it will be rejected when you 
