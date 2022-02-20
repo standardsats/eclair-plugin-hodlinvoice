@@ -169,6 +169,11 @@
             <version>${eclair.version}</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>com.iheart</groupId>
+            <artifactId>ficus_2.13</artifactId>
+            <version>1.5.0</version>
+        </dependency>
     </dependencies>
 
 </project>

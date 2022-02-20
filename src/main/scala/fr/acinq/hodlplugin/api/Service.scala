@@ -19,26 +19,17 @@ package fr.acinq.hodlplugin.api
 import akka.actor.ActorSystem
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.directives.Credentials
-import com.typesafe.config.Config
 import fr.acinq.eclair.api.ExtraDirectives
+import fr.acinq.hodlplugin.HodlInvoiceConfig
 import fr.acinq.hodlplugin.handler.HodlPaymentHandler
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class Service(conf: Config, system: ActorSystem, hodlPaymentHandler: HodlPaymentHandler) extends ExtraDirectives {
-
-  val password = conf.getString("api.password")
-  val apiHost = conf.getString("api.binding-ip")
-  val apiPort = {
-    if(conf.hasPath("hodlplugin.api.port"))
-      conf.getInt("hodlplugin.api.port")
-    else
-      conf.getInt("api.port") + 1 // if no port was specified we default to eclair api port + 1
-  }
+class Service(conf: HodlInvoiceConfig, system: ActorSystem, hodlPaymentHandler: HodlPaymentHandler) extends ExtraDirectives {
 
   def userPassAuthenticator(credentials: Credentials): Future[Option[String]] = credentials match {
-    case p@Credentials.Provided(id) if p.verify(password) => Future.successful(Some(id))
+    case p@Credentials.Provided(id) if p.verify(conf.password) => Future.successful(Some(id))
     case _ => akka.pattern.after(1 second, using = system.scheduler)(Future.successful(None))(system.dispatcher) // force a 1 sec pause to deter brute force
   }
 

@@ -19,20 +19,32 @@ package fr.acinq.hodlplugin
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import com.typesafe.config.Config
-import fr.acinq.eclair.{Kit, Plugin, Setup}
+import fr.acinq.eclair.{Kit, Plugin, PluginParams, Setup}
 import fr.acinq.hodlplugin.api.Service
 import fr.acinq.hodlplugin.handler.HodlPaymentHandler
 import grizzled.slf4j.Logging
 
 class HodlInvoicePlugin extends Plugin with Logging {
+  var pluginConfig: HodlInvoiceConfig = _
+  private var setupRef: Setup = _
 
-  logger.info("loading HodlPlugin")
+  override def params: PluginParams = new PluginParams {
+    override def name: String = "HodlInvoicePlugin"
+  }
 
-  var conf: Config = null
-  var kit: Kit = null
+  override def onSetup(setup: Setup): Unit = {
+    pluginConfig = new HodlInvoiceConfig(datadir = setup.datadir)
+    logger.info("Setting up HodlPlugin")
+    setupRef = setup
+  }
 
   override def onSetup(setup: Setup): Unit = {
     conf = setup.config
+  }
+
+  override def onKit(kit: Kit): Unit = {
+    kit.system actorOf Props(classOf[WatchdogSync], kit, setupRef, pluginConfig)
+    kit.system actorOf Props(classOf[ExternalHedgeClient], kit, setupRef, pluginConfig)
   }
 
   override def onKit(kit: Kit): Unit = {
