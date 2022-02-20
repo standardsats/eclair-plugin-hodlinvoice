@@ -18,10 +18,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>fr.acinq.eclair</groupId>
-    <version>0.2.0</version>
+    <groupId>fr.acinq.hodlplugin</groupId>
+    <version>${eclair.version}</version>
 
-    <artifactId>eclair-hodlplugin_2.11</artifactId>
+    <artifactId>eclair-hodlplugin_2.13</artifactId>
     <packaging>jar</packaging>
     <name>eclair-hodlplugin</name>
 
@@ -30,8 +30,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
-        <scala.version>2.11.12</scala.version>
-        <scala.version.short>2.11</scala.version.short>
+        <scala.version>2.13.6</scala.version>
+        <scala.version.short>2.13</scala.version.short>
+        <eclair.version>0.7.0</eclair.version>
+        <sttp.version>3.3.14</sttp.version>
     </properties>
 
     <build>
@@ -43,10 +45,12 @@
                 <version>3.3.1</version>
                 <configuration>
                     <args combine.children="append">
-                        <arg>-deprecation</arg>
+                        <!--arg>-Xlint:deprecation</arg-->
                         <arg>-feature</arg>
                         <arg>-language:postfixOps</arg>
                         <arg>-language:implicitConversions</arg>
+                        <!--arg>-Werror</arg-->
+                        <arg>-deprecation</arg>
                         <arg>-Xfatal-warnings</arg>
                         <arg>-unchecked</arg>
                         <arg>-Xmax-classfile-name</arg>
@@ -155,14 +159,14 @@
         </dependency>
         <dependency>
             <groupId>fr.acinq.eclair</groupId>
-            <artifactId>eclair-core_${scala.version.short}</artifactId>
-            <version>0.3.5-SNAPSHOT</version>
+            <artifactId>eclair-core_2.13</artifactId>
+            <version>${eclair.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>fr.acinq.eclair</groupId>
-            <artifactId>eclair-node_${scala.version.short}</artifactId>
-            <version>0.3.5-SNAPSHOT</version>
+            <artifactId>eclair-node_2.13</artifactId>
+            <version>${eclair.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
