@@ -12,6 +12,4 @@ class HodlInvoiceConfig(datadir: File) {
   val config: TypesafeConfig = ConfigFactory parseFile new File(resourcesDir, "hodlinvoice.conf")
 
   val password: String = config.as[String]("config.password")
-  val apiHost: String = config.as[String]("config.binding-ip")
-  val apiPort: Int = config.as[Int]("config.port")
 }

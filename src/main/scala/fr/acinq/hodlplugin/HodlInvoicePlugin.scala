@@ -16,50 +16,59 @@
 
 package fr.acinq.hodlplugin
 
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
-import com.typesafe.config.Config
-import fr.acinq.eclair.{Kit, Plugin, PluginParams, Setup}
-import fr.acinq.hodlplugin.api.Service
-import fr.acinq.hodlplugin.handler.HodlPaymentHandler
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.http.scaladsl.server.Route
+import akka.pattern.ask
+import fr.acinq.bitcoin.ByteVector32
+import fr.acinq.eclair.api.directives.EclairDirectives
+import fr.acinq.eclair.{Kit, Plugin, PluginParams, RouteProvider, Setup}
 import grizzled.slf4j.Logging
 
-class HodlInvoicePlugin extends Plugin with Logging {
+import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
+
+class HodlInvoicePlugin extends Plugin with Logging with RouteProvider {
   var pluginConfig: HodlInvoiceConfig = _
-  private var setupRef: Setup = _
+  var paymentActor: ActorRef = _
+  var hodlHandler: HodlPaymentHandler = _
+
 
   override def params: PluginParams = new PluginParams {
     override def name: String = "HodlInvoicePlugin"
   }
 
   override def onSetup(setup: Setup): Unit = {
+    logger.info("setting up HodlPlugin")
     pluginConfig = new HodlInvoiceConfig(datadir = setup.datadir)
-    logger.info("Setting up HodlPlugin")
-    setupRef = setup
-  }
-
-  override def onSetup(setup: Setup): Unit = {
-    conf = setup.config
   }
 
   override def onKit(kit: Kit): Unit = {
-    kit.system actorOf Props(classOf[WatchdogSync], kit, setupRef, pluginConfig)
-    kit.system actorOf Props(classOf[ExternalHedgeClient], kit, setupRef, pluginConfig)
-  }
-
-  override def onKit(kit: Kit): Unit = {
-    this.kit = kit
-    implicit val system = kit.system
-    implicit val ec = kit.system.dispatcher
-    implicit val materializer = ActorMaterializer()
-
+    implicit val coreActorSystem: ActorSystem = kit.system
+    paymentActor = kit.paymentHandler
     val hodlHandler = new HodlPaymentHandler(kit.nodeParams, kit.paymentHandler)
     kit.paymentHandler ! hodlHandler
-
-    val apiService = new Service(conf, kit.system, hodlHandler)
-    Http().bindAndHandle(apiService.route, apiService.apiHost, apiService.apiPort)
-
-    logger.info(s"ready")
+    logger.info("payment handler set up")
   }
 
+  override def route(eclairDirectives: EclairDirectives): Route = {
+    import eclairDirectives._
+    import fr.acinq.eclair.api.serde.FormParamExtractors._
+    import fr.acinq.eclair.api.serde.JsonSupport.{formats, marshaller, serialization}
+
+    val hodlAccept: Route = postRequest("hodlaccept") { implicit t =>
+      formFields("paymentHash".as[ByteVector32]) { case (paymentHash) =>
+        val futureResponse = (paymentActor ? HODL_ACCEPT(paymentHash)).mapTo[CommandResponse]
+        complete(futureResponse)
+      }
+    }
+
+    val hodlReject: Route = postRequest("hodlreject") { implicit t =>
+      formFields("paymentHash".as[ByteVector32]) { case (paymentHash) =>
+        val futureResponse = (paymentActor ? HODL_REJECT(paymentHash)).mapTo[CommandResponse]
+        complete(futureResponse)
+      }
+    }
+    hodlAccept ~ hodlReject
+
+  }
 }
