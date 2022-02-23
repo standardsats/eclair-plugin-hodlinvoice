@@ -21,7 +21,8 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.eclair.api.directives.EclairDirectives
-import fr.acinq.eclair.{Kit, Plugin, PluginParams, RouteProvider, Setup}
+import fr.acinq.eclair.payment.PaymentRequest
+import fr.acinq.eclair.{EclairImpl, Kit, MilliSatoshi, Plugin, PluginParams, RouteProvider, Setup}
 import grizzled.slf4j.Logging
 
 import scala.concurrent.Future
@@ -29,9 +30,9 @@ import scala.concurrent.duration.DurationInt
 
 class HodlInvoicePlugin extends Plugin with Logging with RouteProvider {
   var pluginConfig: HodlInvoiceConfig = _
+  var apiActor: ActorRef = _
   var paymentActor: ActorRef = _
   var hodlHandler: HodlPaymentHandler = _
-
 
   override def params: PluginParams = new PluginParams {
     override def name: String = "HodlInvoicePlugin"
@@ -55,6 +56,13 @@ class HodlInvoicePlugin extends Plugin with Logging with RouteProvider {
     import fr.acinq.eclair.api.serde.FormParamExtractors._
     import fr.acinq.eclair.api.serde.JsonSupport.{formats, marshaller, serialization}
 
+    val hodlCreate: Route = postRequest("hodlcreate") { implicit t =>
+      formFields("amountMsat".as[MilliSatoshi]) { case (amount) =>
+        val futureResponse = (paymentActor ? HODL_CREATE(amount)).mapTo[PaymentRequest]
+        complete(futureResponse)
+      }
+    }
+
     val hodlAccept: Route = postRequest("hodlaccept") { implicit t =>
       formFields("paymentHash".as[ByteVector32]) { case (paymentHash) =>
         val futureResponse = (paymentActor ? HODL_ACCEPT(paymentHash)).mapTo[CommandResponse]
@@ -68,7 +76,7 @@ class HodlInvoicePlugin extends Plugin with Logging with RouteProvider {
         complete(futureResponse)
       }
     }
-    hodlAccept ~ hodlReject
+    hodlCreate ~ hodlAccept ~ hodlReject
 
   }
 }
